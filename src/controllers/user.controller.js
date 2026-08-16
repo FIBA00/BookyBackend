@@ -1,0 +1,222 @@
+import bcrypt from "bcrypt";
+import UserModel from "../models/user.model.js";
+import ValidateUserRegisration from "../validators/user.validator.js";
+import GenerateToken from "../configs/jwt.config.js";
+
+export async function GetAllUsers(req, res) {
+	try {
+		// return all users without their passwords
+		const users = await UserModel.find()
+			.select("-password -__v -role")
+			.sort({ createdAt: -1 });
+		if (!users || users.length === 0) {
+			return res.status(400).json({
+				success: false,
+				message: "No users found at all",
+			});
+		}
+		return res.status(200).json({
+			success: true,
+			message: "Users retrieved successfully",
+			users: users,
+		});
+	} catch (error) {
+		console.log("Error while getting all users", error);
+		return res.status(500).json({
+			success: false,
+			error: error.message,
+		});
+	}
+}
+
+export async function GetUserProfile(req, res) {
+	try {
+		const { id } = req.params;
+
+		const ExistingUser = await UserModel.findOne({ _id: id });
+		if (!ExistingUser) {
+			return res.status(400).json({
+				success: false,
+				message: "User not found with given id ",
+			});
+		}
+		return res.status(200).json({
+			success: true,
+			user: {
+				id: ExistingUser._id,
+				username: ExistingUser.username,
+				email: ExistingUser.email,
+				role: ExistingUser.role,
+			},
+		});
+	} catch (error) {
+		console.log("Error occured while getting user profile: ", error);
+	}
+}
+
+export async function RegisterUser(req, res) {
+	console.log("Registering user: ");
+	try {
+		const { username, email, password } = req.body;
+		const validation = ValidateUserRegisration(req.body);
+		if (!validation.valid) {
+			return res.status(400).json({
+				success: false,
+				message: validation.errors.join(", "),
+			});
+		}
+		const ExistingEmail = await UserModel.findOne({ email });
+		if (ExistingEmail) {
+			return res.status(400).json({
+				success: false,
+				message: "Email already exists",
+			});
+		}
+		const ExistingUsername = await UserModel.findOne({ username });
+		if (ExistingUsername) {
+			return res.status(400).json({
+				success: false,
+				message: "Username already exists",
+			});
+		}
+		const HashedPassword = await bcrypt.hash(password, 10);
+		const User = await UserModel.create({
+			username,
+			email,
+			password: HashedPassword,
+		});
+		console.log(User);
+		const Token = GenerateToken(User);
+		return res.status(201).json({
+			success: true,
+			message: "User registered successfully",
+			bearerToken: Token,
+			user: {
+				id: User._id,
+				username: User.username,
+				email: User.email,
+				role: User.role,
+			},
+		});
+	} catch (error) {
+		console.log("Error registering a user", error);
+		return res.status(500).json({
+			success: false,
+			message: "An error occurred while registering the user",
+			error: error.message,
+		});
+	}
+}
+
+export async function LoginUser(req, res) {
+	console.log("Logging user; ..");
+	try {
+		const { email, password } = req.body;
+		if (!email || !password) {
+			return res.status(400).json({
+				success: false,
+				message: "Email and password are required",
+			});
+		}
+
+		const user = await UserModel.findOne({ email });
+		if (!user) {
+			return res.status(401).json({
+				success: false,
+				message: "Invalid email or password",
+			});
+		}
+
+		const isPasswordMatch = await user.comparePassword(password);
+		if (!isPasswordMatch) {
+			return res.status(401).json({
+				success: false,
+				message: "Invalid email or password",
+			});
+		}
+
+		const Token = GenerateToken(user);
+		return res.status(200).json({
+			success: true,
+			message: "Logged in successfully",
+			bearerToken: Token,
+			user: {
+				id: user._id,
+				username: user.username,
+				email: user.email,
+				role: user.role,
+			},
+		});
+	} catch (error) {
+		console.log("Error logging in", error);
+		return res.status(500).json({
+			success: false,
+			message: "An error occurred while logging in",
+			error: error.message,
+		});
+	}
+}
+
+export async function UpdateUser(req, res) {
+	try {
+		const { user_id } = req.params;
+		// TODO: implement password reset
+		const { username } = req.params;
+		const profileimage = req.file ? req.file.path : undefined;
+
+		const user = await UserModel.findById({ user_id });
+		if (!user) {
+			return res.status(404).json({
+				success: false,
+				message: "User Not found",
+			});
+		}
+
+		const update = {};
+
+		if (username !== undefined) update.username = username;
+		if (profileimage !== undefined) update.profileImage = profileimage;
+
+		const updated_user = await UserModel.findByIdAndUpdate(
+			user_id,
+			update,
+			{
+				returnDocument: "after",
+			},
+		).select("-password");
+
+		return res.status(200).json({
+			success: true,
+			message: "Profile updated successfully",
+			user: updated_user,
+		});
+	} catch (error) {
+		console.log("Error occurred while updating user info: ", error);
+		return res.status(500).json({
+			success: false,
+			message: "An error occurred while updating user",
+			error: error.message,
+		});
+	}
+}
+
+export async function DeleteUser(req, res) {
+	try {
+		const { user_id } = req.params;
+		const user = await UserModel.findOne({ user_id });
+		if (!user) {
+			return res.status(400).json({
+				success: false,
+				message: "User with given id not found!",
+			});
+		}
+		await UserModel.findOneAndDelete({ user_id });
+	} catch (error) {
+		console.log("Error Deleting user: ", error);
+		return res.status(500).json({
+			success: false,
+			message: "An Error occurred while deleting user.",
+			error: error.message,
+		});
+	}
+}
