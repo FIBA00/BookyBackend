@@ -1,6 +1,6 @@
-import UserRoute from "./user.route.js";
-import BookRoute from "./book.route.js";
-import CategoryRoute from "./category.route.js";
+import UserRoute from "./user.routes.js";
+import BookRoute from "./book.routes.js";
+import CategoryRoute from "./category.routes.js";
 
 export default function RegisterRoutes(app) {
 	console.log(`Registering routes: `);

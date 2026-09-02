@@ -4,7 +4,7 @@ import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import RegisterRoutes from "./routes/main.js";
+import RegisterRoutes from "./routes/main.routes.js";
 
 // Get current directory path in ES modules
 const __filename = fileURLToPath(import.meta.url);

@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import UserModel from "../models/user.model.js";
 import ValidateUserRegisration from "../validators/user.validator.js";
-import GenerateToken from "../configs/jwt.config.js";
+import GenerateToken from "../middlewares/auth.middleware.js";
 
 export async function GetAllUsers(req, res) {
 	try {
@@ -9,12 +9,7 @@ export async function GetAllUsers(req, res) {
 		const users = await UserModel.find()
 			.select("-password -__v -role")
 			.sort({ createdAt: -1 });
-		if (!users || users.length === 0) {
-			return res.status(400).json({
-				success: false,
-				message: "No users found at all",
-			});
-		}
+
 		return res.status(200).json({
 			success: true,
 			message: "Users retrieved successfully",
